@@ -89,9 +89,9 @@ bun run dev:tunnel
 |----------|--------|---------|
 | 1 (highest) | CLI flags | `--name`, `--hostname`, `--target` |
 | 2 | Programmatic options | `withTunnel({ name, hostname, target })` |
-| 3 | Environment variables | `TUNNEL_NAME`, `TUNNEL_HOSTNAME`, `TUNNEL_TARGET` |
-| 4 | `tunnel.config.ts` | `export default defineConfig({...})` |
-| 5 (lowest) | `package.json` `cloudflare` field | `"cloudflare": { ... }` |
+| 3 | `tunnel.config.ts` | `export default defineConfig({...})` |
+| 4 | `package.json` `cloudflare` field | `"cloudflare": { ... }` |
+| 5 (lowest) | Environment variables | `TUNNEL_NAME`, `TUNNEL_HOSTNAME`, `TUNNEL_TARGET` |
 
 `name` and `hostname` support `$VAR` interpolation from `process.env` in any source.
 

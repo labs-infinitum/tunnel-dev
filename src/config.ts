@@ -53,7 +53,7 @@ async function loadConfigFile(): Promise<TunnelUserConfig | TunnelUserConfig[] |
 /**
  * Resolve the final tunnel configs by merging all sources.
  * Returns an array (always). Priority (highest → lowest):
- *   CLI flags / programmatic options → env vars → tunnel.config.ts → package.json
+ *   CLI flags / programmatic options → tunnel.config.ts → package.json → env vars
  *
  * If CLI flags are provided, they produce a single-tunnel override.
  * If tunnel.config.ts exports an array, all tunnels are returned (env var substitution applied).
@@ -75,12 +75,12 @@ export async function resolveConfig(options?: TunnelOptions): Promise<TunnelUser
 		return fromConfigFile.map(applyEnvSubstitution);
 	}
 
-	// Single-tunnel merge: CLI flags > env vars > tunnel.config.ts (single) > package.json
+	// Single-tunnel merge: CLI flags > programmatic options > tunnel.config.ts > package.json > env vars
 	const base = Array.isArray(fromConfigFile) ? null : fromConfigFile;
 	const merged = {
+		...fromEnv,
 		...fromPackageJson,
 		...base,
-		...fromEnv,
 		...(options?.name && { name: options.name }),
 		...(options?.hostname && { hostname: options.hostname }),
 		...(options?.target && { target: options.target }),
