@@ -1,0 +1,38 @@
+{
+  "name": "tunnel-dev",
+  "version": "0.1.0",
+  "description": "Zero-config Cloudflare Tunnel CLI for local development",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "tunnel-dev": "./dist/cli.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "cloudflared": "^0.5.3",
+    "jiti": "^2.0.0",
+    "ora": "^8.0.1",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "trustedDependencies": ["cloudflared", "esbuild"]
+}
