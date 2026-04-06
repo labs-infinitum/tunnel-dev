@@ -1,6 +1,6 @@
 {
   "name": "@labs-infinitum/tunnel-dev",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Zero-config Cloudflare Tunnel CLI for local development",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,8 +19,12 @@
     "README.md",
     "LICENSE"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/labs-infinitum/tunnel-dev"
+  },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && chmod +x dist/cli.js",
     "dev": "tsup --watch",
     "prepublishOnly": "bun run build"
   },
