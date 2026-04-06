@@ -1,4 +1,4 @@
-# tunnel-dev
+# @labs-infinitum/tunnel-dev
 
 Zero-config [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) for local development. Expose any local server through your own domain in one command — no manual dashboard setup, no port forwarding.
 
@@ -36,16 +36,16 @@ CLOUDFLARE_ZONE_ID=your_zone_id
 
 ```bash
 # npm
-npm install --save-dev tunnel-dev
+npm install --save-dev @labs-infinitum/tunnel-dev
 
 # bun
-bun add -d tunnel-dev
+bun add -d @labs-infinitum/tunnel-dev
 
 # pnpm
-pnpm add -D tunnel-dev
+pnpm add -D @labs-infinitum/tunnel-dev
 
 # or use without installing
-npx tunnel-dev bun run dev
+npx @labs-infinitum/tunnel-dev bun run dev
 ```
 
 ---
@@ -82,7 +82,7 @@ bun run dev:tunnel
 
 ## Config Sources
 
-tunnel-dev merges config from multiple sources. Higher entries win:
+@labs-infinitum/tunnel-dev merges config from multiple sources. Higher entries win:
 
 | Priority | Source | Example |
 |----------|--------|---------|
@@ -123,7 +123,7 @@ The simplest option. Add a `cloudflare` block:
 For TypeScript config with full IDE autocomplete:
 
 ```ts
-import { defineConfig } from "tunnel-dev";
+import { defineConfig } from "@labs-infinitum/tunnel-dev";
 
 export default defineConfig({
   name: "myapp-$USER",
@@ -159,7 +159,7 @@ tunnel-dev \
 
 ## Monorepo Setup
 
-tunnel-dev is designed to work naturally in monorepos. Each app declares its own tunnel config in its `package.json`, and the CLI is invoked from that app's directory.
+@labs-infinitum/tunnel-dev is designed to work naturally in monorepos. Each app declares its own tunnel config in its `package.json`, and the CLI is invoked from that app's directory.
 
 ### Example: Two-app monorepo
 
@@ -214,7 +214,7 @@ my-monorepo/
 }
 ```
 
-> **Why per-app config?** tunnel-dev reads the `cloudflare` field from the `package.json` in the **current working directory**, so each app gets its own tunnel settings automatically.
+> **Why per-app config?** @labs-infinitum/tunnel-dev reads the `cloudflare` field from the `package.json` in the **current working directory**, so each app gets its own tunnel settings automatically.
 
 ### With Turborepo
 
@@ -261,10 +261,10 @@ Use `$USER` in your tunnel name and hostname so every developer gets a personal 
 
 ## Programmatic API
 
-Use tunnel-dev as a library in your own scripts or tooling:
+Use @labs-infinitum/tunnel-dev as a library in your own scripts or tooling:
 
 ```ts
-import { withTunnel } from "tunnel-dev";
+import { withTunnel } from "@labs-infinitum/tunnel-dev";
 
 await withTunnel({
   // Tunnel config
@@ -282,7 +282,7 @@ await withTunnel({
 If you manage credentials outside of environment variables (e.g. pulled from a secrets manager at runtime), pass them directly:
 
 ```ts
-import { withTunnel } from "tunnel-dev";
+import { withTunnel } from "@labs-infinitum/tunnel-dev";
 
 const secrets = await mySecretsManager.get("cloudflare");
 
@@ -324,7 +324,7 @@ interface TunnelOptions {
 Provides type safety and IDE autocomplete for `tunnel.config.ts`:
 
 ```ts
-import { defineConfig } from "tunnel-dev";
+import { defineConfig } from "@labs-infinitum/tunnel-dev";
 // Returns the config unchanged — purely a TypeScript helper
 export default defineConfig({ ... });
 ```
