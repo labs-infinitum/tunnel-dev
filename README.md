@@ -441,4 +441,4 @@ tunnel-dev --target http://localhost:8080 pnpm dev
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](./LICENSE)
