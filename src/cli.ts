@@ -1,5 +1,9 @@
 import { parseArgs } from "node:util";
+import { config as loadDotenv } from "dotenv";
 import { withTunnel } from "./tunnel.js";
+
+// Load .env from CWD before anything else so env vars are available
+loadDotenv();
 
 const { values, positionals } = parseArgs({
 	args: process.argv.slice(2),
