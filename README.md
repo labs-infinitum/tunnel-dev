@@ -9,6 +9,7 @@ tunnel-dev bun run dev
 ```
 
 - **Automatic** — creates the tunnel, DNS record, and ingress rule via Cloudflare API
+- **Multi-tunnel** — define an array in `tunnel.config.ts` to start all tunnels in parallel
 - **Per-developer URLs** — `$USER` interpolation gives every dev their own subdomain
 - **Multi-source config** — `package.json`, `tunnel.config.ts`, env vars, or CLI flags
 - **CLI + Library** — use as a command or call `withTunnel()` from your own scripts
@@ -120,16 +121,35 @@ The simplest option. Add a `cloudflare` block:
 
 ### Option B — `tunnel.config.ts`
 
-For TypeScript config with full IDE autocomplete:
+For TypeScript config with full IDE autocomplete. Accepts a single tunnel or an array:
 
 ```ts
 import { defineConfig } from "@labs-infinitum/tunnel-dev";
 
+// Single tunnel
 export default defineConfig({
   name: "myapp-$USER",
   hostname: "$USER-myapp.example.com",
   target: "http://localhost:3000",
 });
+```
+
+```ts
+import { defineConfig } from "@labs-infinitum/tunnel-dev";
+
+// Multiple tunnels — all start in parallel before your command runs
+export default defineConfig([
+  {
+    name: "web-$USER",
+    hostname: "$USER-web.example.com",
+    target: "http://localhost:3001",
+  },
+  {
+    name: "api-$USER",
+    hostname: "$USER-api.example.com",
+    target: "http://localhost:3000",
+  },
+]);
 ```
 
 ### Option C — Environment variables
@@ -159,19 +179,59 @@ tunnel-dev \
 
 ## Monorepo Setup
 
-@labs-infinitum/tunnel-dev is designed to work naturally in monorepos. Each app declares its own tunnel config in its `package.json`, and the CLI is invoked from that app's directory.
+There are two patterns for monorepos — pick what fits your workflow.
 
-### Example: Two-app monorepo
+### Pattern A — single `tunnel.config.ts` at the root
+
+Define all tunnels in one place and run a single command to start them all in parallel:
 
 ```
 my-monorepo/
 ├── apps/
 │   ├── web/         ← React frontend on :3001
 │   └── server/      ← API server on :3000
-├── packages/
-│   └── ...
+├── tunnel.config.ts ← all tunnels here
 └── package.json
 ```
+
+**`tunnel.config.ts`**
+```ts
+import { defineConfig } from "@labs-infinitum/tunnel-dev";
+
+export default defineConfig([
+  {
+    name: "myapp-web-$USER",
+    hostname: "$USER-web.example.com",
+    target: "http://localhost:3001",
+  },
+  {
+    name: "myapp-api-$USER",
+    hostname: "$USER-api.example.com",
+    target: "http://localhost:3000",
+  },
+]);
+```
+
+**Root `package.json`**
+```json
+{
+  "scripts": {
+    "dev:tunnel": "tunnel-dev bun run dev"
+  }
+}
+```
+
+```bash
+bun run dev:tunnel
+# Setting up 2 tunnels in parallel...
+#   Tunnel ready: https://alice-web.example.com
+#   Tunnel ready: https://alice-api.example.com
+# Starting: bun run dev
+```
+
+### Pattern B — per-app config in `package.json`
+
+Each app declares its own tunnel config. Invoke `dev:tunnel` from each app's directory (or via Turborepo).
 
 **`apps/web/package.json`**
 ```json
@@ -203,20 +263,9 @@ my-monorepo/
 }
 ```
 
-**Root `package.json`** — convenience scripts to tunnel from the root:
+> @labs-infinitum/tunnel-dev reads `package.json` from the **current working directory**, so each app picks up its own config automatically.
 
-```json
-{
-  "scripts": {
-    "dev:web:tunnel": "cd apps/web && tunnel-dev bun run dev",
-    "dev:server:tunnel": "cd apps/server && node src/index.js"
-  }
-}
-```
-
-> **Why per-app config?** @labs-infinitum/tunnel-dev reads the `cloudflare` field from the `package.json` in the **current working directory**, so each app gets its own tunnel settings automatically.
-
-### With Turborepo
+#### With Turborepo
 
 Register `dev:tunnel` as a persistent task in `turbo.json`:
 
@@ -231,7 +280,7 @@ Register `dev:tunnel` as a persistent task in `turbo.json`:
 }
 ```
 
-Then run all tunnels in parallel:
+Then run per-app tunnels in parallel:
 
 ```bash
 turbo run dev:tunnel --filter=web --filter=server
@@ -321,12 +370,19 @@ interface TunnelOptions {
 
 ### `defineConfig` helper
 
-Provides type safety and IDE autocomplete for `tunnel.config.ts`:
+Provides type safety and IDE autocomplete for `tunnel.config.ts`. Accepts a single config or an array:
 
 ```ts
 import { defineConfig } from "@labs-infinitum/tunnel-dev";
-// Returns the config unchanged — purely a TypeScript helper
-export default defineConfig({ ... });
+
+// Single tunnel
+export default defineConfig({ name, hostname, target });
+
+// Multiple tunnels — started in parallel before your command
+export default defineConfig([
+  { name, hostname, target },
+  { name, hostname, target },
+]);
 ```
 
 ---
@@ -358,12 +414,13 @@ tunnel-dev --target http://localhost:8080 pnpm dev
 ## How It Works
 
 1. Reads and merges config from all sources (package.json → tunnel.config.ts → env vars → CLI flags)
-2. Checks `~/.cloudflared/tunnels/<name>.json` cache for an existing tunnel ID
+2. For each tunnel: checks `~/.cloudflared/tunnels/<name>.json` cache for an existing tunnel ID
 3. Creates or reuses the tunnel via Cloudflare API
 4. Configures the DNS CNAME record pointing to the tunnel
 5. Sets the ingress rule routing your hostname to your local server
 6. Downloads `cloudflared` binary from [cloudflare/cloudflared](https://github.com/cloudflare/cloudflared/releases) (cached at `~/.cloudflared/bin/`) and starts it
-7. Spawns your command — both processes shut down together on `Ctrl+C`
+7. When multiple tunnels are configured, steps 2–6 run in parallel for all of them
+8. Spawns your command once all tunnels are ready — everything shuts down together on `Ctrl+C`
 
 > Each tunnel is cached per-name at `~/.cloudflared/tunnels/<name>.json`, so multiple projects never overwrite each other's tunnel state.
 

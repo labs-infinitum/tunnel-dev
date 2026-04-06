@@ -1,6 +1,6 @@
 {
   "name": "@labs-infinitum/tunnel-dev",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Zero-config Cloudflare Tunnel CLI for local development",
   "type": "module",
   "main": "./dist/index.js",
