@@ -12,11 +12,23 @@ import {
 import { startCloudflared } from "./cloudflared.js";
 import { resolveConfig } from "./config.js";
 import { VERIFICATION_TIMEOUT_MS } from "./constants.js";
-import { env } from "./env.js";
+import { getEnv } from "./env.js";
 import type { TunnelOptions } from "./types.js";
 
 export async function withTunnel(options?: TunnelOptions): Promise<void> {
 	const config = await resolveConfig(options);
+
+	// Resolve Cloudflare credentials: options take priority over env vars.
+	// getEnv() is called here (not at import time) so missing vars only throw
+	// when withTunnel() is actually invoked.
+	const env = (() => {
+		const fromEnv = getEnv();
+		return {
+			CLOUDFLARE_API_TOKEN: options?.apiToken ?? fromEnv.CLOUDFLARE_API_TOKEN,
+			CLOUDFLARE_ACCOUNT_ID: options?.accountId ?? fromEnv.CLOUDFLARE_ACCOUNT_ID,
+			CLOUDFLARE_ZONE_ID: options?.zoneId ?? fromEnv.CLOUDFLARE_ZONE_ID,
+		};
+	})();
 
 	const spinner = ora("Setting up Cloudflare Tunnel...").start();
 
@@ -26,21 +38,18 @@ export async function withTunnel(options?: TunnelOptions): Promise<void> {
 		// Check per-tunnel cache first
 		const cached = await loadTunnelCache(config.name);
 
+		const { CLOUDFLARE_API_TOKEN: apiToken, CLOUDFLARE_ACCOUNT_ID: accountId, CLOUDFLARE_ZONE_ID: zoneId } = env;
+
 		if (cached?.tunnelId) {
 			spinner.text = `Checking cached tunnel: ${config.name}`;
-			const existing = await getTunnel(env.CLOUDFLARE_ACCOUNT_ID, config.name);
+			const existing = await getTunnel(accountId, config.name, apiToken);
 
 			if (existing && existing.id === cached.tunnelId) {
 				tunnelId = cached.tunnelId;
 				spinner.text = "Updating tunnel configuration...";
-				await configureIngressRule(
-					env.CLOUDFLARE_ACCOUNT_ID,
-					existing.id,
-					config.hostname,
-					config.target,
-				);
+				await configureIngressRule(accountId, existing.id, config.hostname, config.target, apiToken);
 				spinner.text = "Updating DNS record...";
-				await configureDNS(env.CLOUDFLARE_ZONE_ID, config.hostname, existing.id);
+				await configureDNS(zoneId, config.hostname, existing.id, apiToken);
 				await saveTunnelCache(config.name, {
 					tunnelId: existing.id,
 					hostname: config.hostname,
@@ -51,19 +60,14 @@ export async function withTunnel(options?: TunnelOptions): Promise<void> {
 
 		if (!tunnelId) {
 			spinner.text = `Checking for existing tunnel: ${config.name}`;
-			const existing = await getTunnel(env.CLOUDFLARE_ACCOUNT_ID, config.name);
+			const existing = await getTunnel(accountId, config.name, apiToken);
 
 			if (existing) {
 				tunnelId = existing.id;
 				spinner.text = "Updating tunnel configuration...";
-				await configureIngressRule(
-					env.CLOUDFLARE_ACCOUNT_ID,
-					existing.id,
-					config.hostname,
-					config.target,
-				);
+				await configureIngressRule(accountId, existing.id, config.hostname, config.target, apiToken);
 				spinner.text = "Updating DNS record...";
-				await configureDNS(env.CLOUDFLARE_ZONE_ID, config.hostname, existing.id);
+				await configureDNS(zoneId, config.hostname, existing.id, apiToken);
 				await saveTunnelCache(config.name, {
 					tunnelId: existing.id,
 					hostname: config.hostname,
@@ -71,18 +75,13 @@ export async function withTunnel(options?: TunnelOptions): Promise<void> {
 				});
 			} else {
 				spinner.text = `Creating tunnel: ${config.name}`;
-				const tunnel = await createTunnel(env.CLOUDFLARE_ACCOUNT_ID, config.name);
+				const tunnel = await createTunnel(accountId, config.name, apiToken);
 				tunnelId = tunnel.id;
 
 				spinner.text = "Configuring tunnel...";
-				await configureIngressRule(
-					env.CLOUDFLARE_ACCOUNT_ID,
-					tunnel.id,
-					config.hostname,
-					config.target,
-				);
+				await configureIngressRule(accountId, tunnel.id, config.hostname, config.target, apiToken);
 				spinner.text = "Creating DNS record...";
-				await configureDNS(env.CLOUDFLARE_ZONE_ID, config.hostname, tunnel.id);
+				await configureDNS(zoneId, config.hostname, tunnel.id, apiToken);
 				await saveTunnelCache(config.name, {
 					tunnelId: tunnel.id,
 					hostname: config.hostname,
@@ -96,14 +95,14 @@ export async function withTunnel(options?: TunnelOptions): Promise<void> {
 		}
 
 		spinner.text = "Getting tunnel token...";
-		const token = await getTunnelToken(env.CLOUDFLARE_ACCOUNT_ID, tunnelId);
+		const token = await getTunnelToken(accountId, tunnelId, apiToken);
 
 		spinner.text = "Starting cloudflared...";
 		const cloudflaredProcess = await startCloudflared(token);
 
 		spinner.text = "Verifying tunnel status...";
 		const isHealthy = await Promise.race([
-			verifyTunnelStatus(env.CLOUDFLARE_ACCOUNT_ID, tunnelId),
+			verifyTunnelStatus(accountId, tunnelId, apiToken),
 			new Promise<boolean>((resolve) => setTimeout(() => resolve(false), VERIFICATION_TIMEOUT_MS)),
 		]);
 

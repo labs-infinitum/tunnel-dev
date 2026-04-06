@@ -6,4 +6,12 @@ const envSchema = z.object({
 	CLOUDFLARE_ZONE_ID: z.string(),
 });
 
-export const env = envSchema.parse(process.env);
+export type CloudflareEnv = z.infer<typeof envSchema>;
+
+/**
+ * Validates and returns Cloudflare credentials from process.env.
+ * Called lazily (inside functions) so importing this module never throws.
+ */
+export function getEnv(): CloudflareEnv {
+	return envSchema.parse(process.env);
+}

@@ -1,16 +1,19 @@
 import { CLOUDFLARE_API_BASE } from "./constants.js";
-import { env } from "./env.js";
+import { getEnv } from "./env.js";
 import type { CloudflareAPIResponse, CloudflareTunnel } from "./types.js";
 
 async function cfRequest(
 	endpoint: string,
 	method = "GET",
 	body?: unknown,
+	apiToken?: string,
 ): Promise<CloudflareAPIResponse> {
+	const token = apiToken ?? getEnv().CLOUDFLARE_API_TOKEN;
+
 	const response = await fetch(`${CLOUDFLARE_API_BASE}${endpoint}`, {
 		method,
 		headers: {
-			Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+			Authorization: `Bearer ${token}`,
 			"Content-Type": "application/json",
 		},
 		body: body ? JSON.stringify(body) : undefined,
@@ -34,8 +37,14 @@ async function cfRequest(
 export async function getTunnel(
 	accountId: string,
 	tunnelName: string,
+	apiToken?: string,
 ): Promise<CloudflareTunnel | null> {
-	const data = await cfRequest(`/accounts/${accountId}/cfd_tunnel?name=${tunnelName}`);
+	const data = await cfRequest(
+		`/accounts/${accountId}/cfd_tunnel?name=${tunnelName}`,
+		"GET",
+		undefined,
+		apiToken,
+	);
 	const tunnels = Array.isArray(data.result) ? data.result : [data.result];
 	return (tunnels as CloudflareTunnel[]).find((t) => t.name === tunnelName) ?? null;
 }
@@ -43,16 +52,28 @@ export async function getTunnel(
 export async function createTunnel(
 	accountId: string,
 	tunnelName: string,
+	apiToken?: string,
 ): Promise<CloudflareTunnel> {
-	const data = await cfRequest(`/accounts/${accountId}/cfd_tunnel`, "POST", {
-		name: tunnelName,
-		config_src: "cloudflare",
-	});
+	const data = await cfRequest(
+		`/accounts/${accountId}/cfd_tunnel`,
+		"POST",
+		{ name: tunnelName, config_src: "cloudflare" },
+		apiToken,
+	);
 	return data.result as CloudflareTunnel;
 }
 
-export async function getTunnelToken(accountId: string, tunnelId: string): Promise<string> {
-	const data = await cfRequest(`/accounts/${accountId}/cfd_tunnel/${tunnelId}/token`);
+export async function getTunnelToken(
+	accountId: string,
+	tunnelId: string,
+	apiToken?: string,
+): Promise<string> {
+	const data = await cfRequest(
+		`/accounts/${accountId}/cfd_tunnel/${tunnelId}/token`,
+		"GET",
+		undefined,
+		apiToken,
+	);
 	if (typeof data.result === "string") return data.result;
 	return (data.result as { token?: string }).token ?? "";
 }
@@ -60,9 +81,15 @@ export async function getTunnelToken(accountId: string, tunnelId: string): Promi
 export async function verifyTunnelStatus(
 	accountId: string,
 	tunnelId: string,
+	apiToken?: string,
 ): Promise<boolean> {
 	try {
-		const data = await cfRequest(`/accounts/${accountId}/cfd_tunnel/${tunnelId}`);
+		const data = await cfRequest(
+			`/accounts/${accountId}/cfd_tunnel/${tunnelId}`,
+			"GET",
+			undefined,
+			apiToken,
+		);
 		const tunnel = data.result as CloudflareTunnel;
 		return tunnel.status === "healthy" && (tunnel.connections?.length ?? 0) > 0;
 	} catch {
@@ -74,28 +101,32 @@ export async function configureDNS(
 	zoneId: string,
 	hostname: string,
 	tunnelId: string,
+	apiToken?: string,
 ): Promise<void> {
 	const existing = await cfRequest(
 		`/zones/${zoneId}/dns_records?type=CNAME&name=${hostname}`,
+		"GET",
+		undefined,
+		apiToken,
 	);
 	const records = Array.isArray(existing.result) ? existing.result : [];
 	const cname = `${tunnelId}.cfargotunnel.com`;
 
 	if (records.length > 0) {
 		const recordId = (records[0] as { id: string }).id;
-		await cfRequest(`/zones/${zoneId}/dns_records/${recordId}`, "PUT", {
-			type: "CNAME",
-			name: hostname,
-			content: cname,
-			proxied: true,
-		});
+		await cfRequest(
+			`/zones/${zoneId}/dns_records/${recordId}`,
+			"PUT",
+			{ type: "CNAME", name: hostname, content: cname, proxied: true },
+			apiToken,
+		);
 	} else {
-		await cfRequest(`/zones/${zoneId}/dns_records`, "POST", {
-			type: "CNAME",
-			name: hostname,
-			content: cname,
-			proxied: true,
-		});
+		await cfRequest(
+			`/zones/${zoneId}/dns_records`,
+			"POST",
+			{ type: "CNAME", name: hostname, content: cname, proxied: true },
+			apiToken,
+		);
 	}
 }
 
@@ -104,13 +135,19 @@ export async function configureIngressRule(
 	tunnelId: string,
 	hostname: string,
 	target: string,
+	apiToken?: string,
 ): Promise<void> {
-	await cfRequest(`/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`, "PUT", {
-		config: {
-			ingress: [
-				{ hostname, service: target, originRequest: {} },
-				{ service: "http_status:404" },
-			],
+	await cfRequest(
+		`/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`,
+		"PUT",
+		{
+			config: {
+				ingress: [
+					{ hostname, service: target, originRequest: {} },
+					{ service: "http_status:404" },
+				],
+			},
 		},
-	});
+		apiToken,
+	);
 }
